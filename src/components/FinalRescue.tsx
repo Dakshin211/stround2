@@ -40,6 +40,22 @@ export const FinalRescue: React.FC<FinalRescueProps> = ({
     }
   };
 
+  // Safety check - if critical data is missing, show loading
+  if (!expectedCode || expectedCode.length < 3) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[200px]">
+        <div className="text-center space-y-4">
+          <div className="animate-pulse">
+            <p className="text-primary font-cinzel text-2xl flicker-slow">LOADING...</p>
+          </div>
+          <p className="text-muted-foreground font-rajdhani font-medium">
+            Preparing final rescue...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // U Player View - Waiting
   if (role === 'U') {
     return (

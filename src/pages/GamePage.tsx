@@ -315,14 +315,14 @@ const GamePage: React.FC = () => {
   const stage = room?.stage || 'alphabet';
 
   // Loading component for consistent branding
-  const LoadingScreen = () => (
-    <div className="flex-1 flex items-center justify-center">
+  const LoadingScreen = ({ message = "Establishing connection to the Upside Down..." }: { message?: string }) => (
+    <div className="flex-1 flex items-center justify-center min-h-[200px]">
       <div className="text-center space-y-4">
         <div className="animate-pulse">
           <p className="text-primary font-cinzel text-2xl flicker-slow">CONNECTING...</p>
         </div>
         <p className="text-muted-foreground font-rajdhani font-medium">
-          Establishing connection to the Upside Down...
+          {message}
         </p>
         <div className="flex justify-center gap-2">
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -333,11 +333,15 @@ const GamePage: React.FC = () => {
     </div>
   );
 
+  // Check if data is ready for current stage
+  const isDataReady = !puzzleLoading && puzzleSet !== null && room !== null;
+
   // Render based on stage - ALWAYS check for data before rendering
   const renderContent = () => {
-    // CRITICAL: If puzzle data isn't loaded, show loading screen
-    if (puzzleLoading || !puzzleSet) {
-      return <LoadingScreen />;
+    // CRITICAL: If puzzle data or room data isn't loaded, show loading screen
+    // This prevents black screen when one client transitions before data is synced
+    if (!isDataReady) {
+      return <LoadingScreen message="Syncing game data..." />;
     }
 
     switch (stage) {
