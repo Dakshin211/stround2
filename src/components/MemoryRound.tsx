@@ -162,14 +162,27 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
     }
   };
 
+  // Debug log to understand what data we're receiving
+  console.log('[MemoryRound] puzzleSet:', puzzleSet);
+  console.log('[MemoryRound] memoryList:', puzzleSet?.memoryList);
+  console.log('[MemoryRound] memoryQuestion:', puzzleSet?.memoryQuestion);
+  console.log('[MemoryRound] memoryAnswer:', puzzleSet?.memoryAnswer);
+
   // Safety check - if puzzleSet data is incomplete, show loading
-  const isDataValid = puzzleSet && 
+  // This check must be thorough to prevent black screens
+  const isDataValid = Boolean(
+    puzzleSet && 
+    puzzleSet.memoryList && 
     Array.isArray(puzzleSet.memoryList) && 
     puzzleSet.memoryList.length > 0 &&
     puzzleSet.memoryQuestion &&
-    puzzleSet.memoryAnswer;
+    puzzleSet.memoryAnswer
+  );
+  
+  console.log('[MemoryRound] isDataValid:', isDataValid);
 
   if (!isDataValid) {
+    console.warn('[MemoryRound] Data validation failed, showing loading');
     return (
       <div className="flex-1 flex items-center justify-center min-h-[200px]">
         <div className="text-center space-y-4">

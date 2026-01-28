@@ -184,40 +184,64 @@ export async function createTeam(roomCode: string, teamId: string, puzzleSetId: 
 }
 
 export async function getTeam(roomCode: string): Promise<Team | null> {
-  const teamRef = doc(firestore, 'teams', roomCode);
-  const snapshot = await getDoc(teamRef);
-  
-  if (!snapshot.exists()) {
+  try {
+    const teamRef = doc(firestore, 'teams', roomCode);
+    const snapshot = await getDoc(teamRef);
+    
+    if (!snapshot.exists()) {
+      console.warn(`[getTeam] Team "${roomCode}" not found`);
+      return null;
+    }
+    
+    return snapshot.data() as Team;
+  } catch (err) {
+    console.error(`[getTeam] Error fetching team "${roomCode}":`, err);
     return null;
   }
-  
-  return snapshot.data() as Team;
 }
 
-export async function getPuzzleSet(puzzleSetId: string): Promise<PuzzleSet | null> {
+// Demo puzzle data - used as fallback when Firestore data is unavailable
+const DEMO_PUZZLE: PuzzleSet = {
+  alphabetClue: 'I am stuck in darkness. Find me in the void.',
+  alphabetAnswer: 'HELP',
+  memoryList: ['Eleven', 'Will', 'Dustin', 'Mike', 'Lucas', 'Nancy', 'Jonathan', 'Hopper'],
+  memoryText: 'The gate opened in 1983 when a young girl with extraordinary powers escaped from Hawkins Lab. She had the number 011 on her wrist.',
+  memoryQuestion: 'Who opened the gate?',
+  memoryAnswer: 'ELEVEN',
+  memoryGuaranteedWords: ['Eleven'],
+  partialCode1: '1983',
+  partialCode2: '011',
+  navigationQR: ''
+};
+
+export async function getPuzzleSet(puzzleSetId: string): Promise<PuzzleSet> {
+  // Always return demo puzzle for 'demo' id
   if (puzzleSetId === 'demo') {
-    return {
-      alphabetClue: 'I am stuck in darkness. Find me in the void.',
-      alphabetAnswer: 'HELP',
-      memoryList: ['Eleven', 'Will', 'Dustin', 'Mike', 'Lucas', 'Nancy', 'Jonathan', 'Hopper'],
-      memoryText: 'The gate opened in 1983 when a young girl with extraordinary powers escaped from Hawkins Lab. She had the number 011 on her wrist.',
-      memoryQuestion: 'Who opened the gate?',
-      memoryAnswer: 'ELEVEN',
-      memoryGuaranteedWords: ['Eleven'],
-      partialCode1: '1983',
-      partialCode2: '011',
-      navigationQR: ''
-    };
+    return DEMO_PUZZLE;
   }
   
-  const puzzleRef = doc(firestore, 'puzzleSets', puzzleSetId);
-  const snapshot = await getDoc(puzzleRef);
-  
-  if (!snapshot.exists()) {
-    return null;
+  try {
+    const puzzleRef = doc(firestore, 'puzzleSets', puzzleSetId);
+    const snapshot = await getDoc(puzzleRef);
+    
+    if (!snapshot.exists()) {
+      console.warn(`[getPuzzleSet] Puzzle set "${puzzleSetId}" not found, using demo`);
+      return DEMO_PUZZLE;
+    }
+    
+    const data = snapshot.data();
+    
+    // Validate required fields exist
+    if (!data.memoryList || !data.memoryQuestion || !data.memoryAnswer) {
+      console.warn(`[getPuzzleSet] Puzzle set "${puzzleSetId}" missing required fields, using demo`);
+      return DEMO_PUZZLE;
+    }
+    
+    return data as PuzzleSet;
+  } catch (err) {
+    console.error(`[getPuzzleSet] Error fetching puzzle "${puzzleSetId}":`, err);
+    return DEMO_PUZZLE;
   }
-  
-  return snapshot.data() as PuzzleSet;
 }
 
 export async function updateTeamAttempts(roomCode: string, field: 'alphabet' | 'memory', value: number): Promise<void> {

@@ -77,14 +77,29 @@ const GamePage: React.FC = () => {
     
     const loadPuzzle = async () => {
       try {
+        console.log('[GamePage] Loading puzzle for room:', roomCode);
         const team = await getTeam(roomCode);
+        console.log('[GamePage] Team data:', team);
+        
         if (team) {
-          setTeamId(team.teamId);
-          const puzzle = await getPuzzleSet(team.puzzleSet);
+          setTeamId(team.teamId || 'TEAM');
+          console.log('[GamePage] Loading puzzleSet:', team.puzzleSet);
+          // getPuzzleSet now ALWAYS returns valid data (falls back to demo)
+          const puzzle = await getPuzzleSet(team.puzzleSet || 'demo');
+          console.log('[GamePage] Loaded puzzle:', puzzle);
           setPuzzleSet(puzzle);
+        } else {
+          console.warn('[GamePage] No team found, using demo puzzle');
+          // No team exists - use demo puzzle directly
+          const demoPuzzle = await getPuzzleSet('demo');
+          console.log('[GamePage] Demo puzzle loaded:', demoPuzzle);
+          setPuzzleSet(demoPuzzle);
         }
       } catch (err) {
-        console.error('Error loading puzzle:', err);
+        console.error('[GamePage] Error loading puzzle:', err);
+        // On any error, use demo puzzle as fallback
+        const demoPuzzle = await getPuzzleSet('demo');
+        setPuzzleSet(demoPuzzle);
       } finally {
         setPuzzleLoading(false);
       }
