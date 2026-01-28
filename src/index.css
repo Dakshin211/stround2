@@ -1,0 +1,409 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 92%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 92%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 92%;
+
+    --primary: 0 75% 45%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 50% 18%;
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 0 15% 15%;
+    --muted-foreground: 0 0% 60%;
+
+    --accent: 35 100% 55%;
+    --accent-foreground: 0 0% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 25% 25%;
+    --input: 0 25% 18%;
+    --ring: 0 75% 50%;
+
+    --radius: 0.5rem;
+
+    /* Custom Stranger Things colors */
+    --blood-red: 0 75% 40%;
+    --blood-red-glow: 0 100% 55%;
+    --ember: 25 100% 50%;
+    --ember-glow: 30 100% 65%;
+    --void-black: 0 0% 2%;
+    --static-gray: 0 0% 30%;
+    --light-bulb: 45 100% 75%;
+    --light-bulb-glow: 40 100% 85%;
+
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 0 75% 45%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 50% 18%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 25% 25%;
+    --sidebar-ring: 0 75% 50%;
+  }
+
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 92%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 92%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 0 75% 45%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 50% 18%;
+    --secondary-foreground: 0 0% 92%;
+    --muted: 0 15% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 35 100% 55%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 25% 25%;
+    --input: 0 25% 18%;
+    --ring: 0 75% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+  }
+}
+
+@layer components {
+  .stranger-title {
+    font-family: 'Cinzel', serif;
+    font-weight: 700;
+    @apply text-primary tracking-wider;
+    text-shadow: 
+      0 0 10px hsl(var(--blood-red-glow) / 0.9),
+      0 0 20px hsl(var(--blood-red-glow) / 0.7),
+      0 0 40px hsl(var(--blood-red-glow) / 0.5),
+      0 0 80px hsl(var(--blood-red-glow) / 0.3);
+  }
+
+  .glitch-text {
+    animation: glitch 3s infinite;
+  }
+
+  .crt-overlay {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    background: 
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        hsl(var(--void-black) / 0.03) 2px,
+        hsl(var(--void-black) / 0.03) 4px
+      );
+    z-index: 100;
+  }
+
+  .flicker {
+    animation: flicker 0.1s infinite;
+  }
+
+  .flicker-slow {
+    animation: flicker-slow 2s infinite;
+  }
+
+  .light-bulb {
+    @apply relative rounded-full;
+    width: 14px;
+    height: 14px;
+    background: hsl(var(--static-gray));
+    transition: all 0.2s ease;
+  }
+
+  .light-bulb.active {
+    background: hsl(var(--light-bulb));
+    box-shadow: 
+      0 0 15px hsl(var(--light-bulb-glow)),
+      0 0 30px hsl(var(--light-bulb-glow)),
+      0 0 60px hsl(var(--ember-glow) / 0.9),
+      0 0 100px hsl(var(--ember) / 0.6),
+      0 0 150px hsl(var(--ember) / 0.3);
+    animation: bulb-glow 0.3s ease-in-out infinite alternate;
+  }
+
+  .upside-down-bg {
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.95);
+  }
+
+  .page-overlay {
+    background: linear-gradient(
+      to bottom,
+      hsl(var(--void-black) / 0.1) 0%,
+      hsl(var(--void-black) / 0.15) 50%,
+      hsl(var(--void-black) / 0.2) 100%
+    );
+  }
+
+  .btn-scary {
+    @apply relative px-8 py-4 font-semibold uppercase tracking-widest;
+    font-family: 'Cinzel', serif;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--blood-red)) 0%,
+      hsl(var(--primary)) 50%,
+      hsl(var(--blood-red)) 100%
+    );
+    border: 2px solid hsl(var(--blood-red-glow) / 0.6);
+    color: hsl(var(--foreground));
+    text-shadow: 0 0 10px hsl(var(--blood-red-glow));
+    box-shadow: 
+      0 0 25px hsl(var(--blood-red-glow) / 0.4),
+      inset 0 0 15px hsl(var(--void-black) / 0.4);
+    transition: all 0.3s ease;
+  }
+
+  .btn-scary:hover {
+    transform: scale(1.05);
+    box-shadow: 
+      0 0 40px hsl(var(--blood-red-glow) / 0.6),
+      0 0 80px hsl(var(--blood-red-glow) / 0.4),
+      inset 0 0 15px hsl(var(--void-black) / 0.4);
+  }
+
+  .btn-scary:active {
+    transform: scale(0.98);
+  }
+
+  .alphabet-key {
+    @apply relative flex items-center justify-center;
+    width: 42px;
+    height: 50px;
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--blood-red-glow));
+    text-shadow: 0 0 8px hsl(var(--blood-red-glow) / 0.6);
+    transition: all 0.2s ease;
+  }
+
+  .alphabet-key:hover {
+    background: hsl(var(--secondary));
+    box-shadow: 
+      0 0 20px hsl(var(--blood-red-glow) / 0.5),
+      inset 0 0 10px hsl(var(--blood-red-glow) / 0.2);
+    transform: scale(1.1);
+  }
+
+  .alphabet-key:active {
+    background: hsl(var(--primary));
+    transform: scale(0.95);
+  }
+
+  .static-noise {
+    position: relative;
+  }
+
+  .static-noise::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+    pointer-events: none;
+    animation: static 0.2s steps(5) infinite;
+  }
+
+  .thunder-flash {
+    animation: thunder 6s infinite;
+  }
+
+  /* Realistic ambient flicker */
+  .ambient-flicker {
+    animation: ambient-flicker 4s ease-in-out infinite;
+  }
+
+  /* Light leak effect */
+  .light-leak {
+    position: relative;
+  }
+
+  .light-leak::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%;
+    width: 200%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--blood-red-glow) / 0.03) 25%,
+      hsl(var(--ember-glow) / 0.05) 50%,
+      hsl(var(--blood-red-glow) / 0.03) 75%,
+      transparent 100%
+    );
+    animation: light-sweep 8s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes glitch {
+  0%, 85%, 100% {
+    transform: translate(0);
+    opacity: 1;
+  }
+  86% {
+    transform: translate(-3px, 1px);
+    opacity: 0.85;
+    text-shadow: 
+      3px 0 hsl(180 100% 50% / 0.3),
+      -3px 0 hsl(0 100% 50% / 0.3),
+      0 0 10px hsl(var(--blood-red-glow) / 0.9);
+  }
+  87% {
+    transform: translate(3px, -1px);
+    opacity: 0.9;
+  }
+  88% {
+    transform: translate(-2px, 2px);
+    opacity: 0.75;
+  }
+  89% {
+    transform: translate(2px, -2px);
+    opacity: 1;
+  }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  25% { opacity: 0.9; }
+  50% { opacity: 1; }
+  75% { opacity: 0.85; }
+}
+
+@keyframes flicker-slow {
+  0%, 100% { opacity: 1; }
+  10% { opacity: 0.95; }
+  20% { opacity: 1; }
+  30% { opacity: 0.9; }
+  40% { opacity: 1; }
+  50% { opacity: 0.92; }
+  60% { opacity: 1; }
+  70% { opacity: 0.88; }
+  80% { opacity: 1; }
+  90% { opacity: 0.95; }
+}
+
+@keyframes bulb-glow {
+  0% {
+    box-shadow: 
+      0 0 15px hsl(45 100% 75%),
+      0 0 30px hsl(45 100% 85%),
+      0 0 60px hsl(30 100% 65% / 0.9),
+      0 0 100px hsl(25 100% 50% / 0.6);
+  }
+  100% {
+    box-shadow: 
+      0 0 20px hsl(45 100% 80%),
+      0 0 40px hsl(45 100% 90%),
+      0 0 80px hsl(30 100% 70% / 1),
+      0 0 120px hsl(25 100% 55% / 0.7);
+  }
+}
+
+@keyframes static {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-1px, 1px); }
+  40% { transform: translate(1px, -1px); }
+  60% { transform: translate(-1px, -1px); }
+  80% { transform: translate(1px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes thunder {
+  0%, 87%, 89%, 91%, 93%, 100% {
+    opacity: 0;
+  }
+  88%, 90%, 92% {
+    opacity: 0.12;
+  }
+}
+
+@keyframes ambient-flicker {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  5% {
+    filter: brightness(1.02);
+  }
+  10% {
+    filter: brightness(0.98);
+  }
+  15% {
+    filter: brightness(1.01);
+  }
+  50% {
+    filter: brightness(0.97);
+  }
+  55% {
+    filter: brightness(1.03);
+  }
+  80% {
+    filter: brightness(0.99);
+  }
+}
+
+@keyframes light-sweep {
+  0%, 100% {
+    transform: translateX(-30%);
+    opacity: 0;
+  }
+  50% {
+    transform: translateX(30%);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-red {
+  0%, 100% {
+    box-shadow: 0 0 20px hsl(var(--blood-red-glow) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 50px hsl(var(--blood-red-glow) / 0.7);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
