@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { GlitchText } from '@/components/GlitchText';
 import { ScaryButton } from '@/components/ScaryButton';
 import { Input } from '@/components/ui/input';
-import { PuzzleSet } from '@/lib/firebase';
+import { PuzzleSet, getMemoryListAsArray, getMemoryListWithValues } from '@/lib/firebase';
 
 interface MemoryRoundProps {
   role: 'U' | 'H';
@@ -28,27 +28,38 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   const [isWrong, setIsWrong] = useState(false);
   const [attempts, setAttempts] = useState(0);
 
+  // Convert memoryList to array for display (handles both array and object formats)
+  const memoryListArray = useMemo(() => {
+    return getMemoryListAsArray(puzzleSet.memoryList);
+  }, [puzzleSet.memoryList]);
+
+  // Get memory list with values for display
+  const memoryListWithValues = useMemo(() => {
+    return getMemoryListWithValues(puzzleSet.memoryList);
+  }, [puzzleSet.memoryList]);
+
   // Generate random subset of memory list for rounds after first
   const displayedMemoryList = useMemo(() => {
     if (roundNumber === 1) {
-      return puzzleSet.memoryList;
+      return memoryListWithValues;
     }
     
     // For subsequent rounds, select 4-5 random items but include guaranteed words
     const guaranteed = puzzleSet.memoryGuaranteedWords || [];
-    const otherItems = puzzleSet.memoryList.filter(item => !guaranteed.includes(item));
+    const otherItems = memoryListWithValues.filter(item => !guaranteed.includes(item.name));
     
     // Shuffle other items
     const shuffled = [...otherItems].sort(() => Math.random() - 0.5);
     
     // Pick 4-5 total, including guaranteed
     const targetCount = 4 + Math.floor(Math.random() * 2); // 4 or 5
-    const remainingSlots = targetCount - guaranteed.length;
-    const selected = [...guaranteed, ...shuffled.slice(0, Math.max(0, remainingSlots))];
+    const guaranteedItems = memoryListWithValues.filter(item => guaranteed.includes(item.name));
+    const remainingSlots = targetCount - guaranteedItems.length;
+    const selected = [...guaranteedItems, ...shuffled.slice(0, Math.max(0, remainingSlots))];
     
     // Shuffle final result
     return selected.sort(() => Math.random() - 0.5);
-  }, [puzzleSet.memoryList, puzzleSet.memoryGuaranteedWords, roundNumber]);
+  }, [memoryListWithValues, puzzleSet.memoryGuaranteedWords, roundNumber]);
 
   // U Player: Memorize timer (60 seconds)
   useEffect(() => {
@@ -144,7 +155,12 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   }, [role, phase]);
 
   const handleSubmitAnswer = () => {
-    const isCorrect = answer.toUpperCase().trim() === puzzleSet.memoryAnswer.toUpperCase();
+    // Normalize both values to strings for comparison
+    const userAnswer = answer.trim();
+    const correctAnswer = String(puzzleSet.memoryAnswer);
+    
+    // Compare as strings (case-insensitive for text answers)
+    const isCorrect = userAnswer.toUpperCase() === correctAnswer.toUpperCase();
     
     if (isCorrect) {
       onAnswer(true);
@@ -162,27 +178,16 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
     }
   };
 
-  // Debug log to understand what data we're receiving
-  console.log('[MemoryRound] puzzleSet:', puzzleSet);
-  console.log('[MemoryRound] memoryList:', puzzleSet?.memoryList);
-  console.log('[MemoryRound] memoryQuestion:', puzzleSet?.memoryQuestion);
-  console.log('[MemoryRound] memoryAnswer:', puzzleSet?.memoryAnswer);
-
   // Safety check - if puzzleSet data is incomplete, show loading
-  // This check must be thorough to prevent black screens
   const isDataValid = Boolean(
     puzzleSet && 
     puzzleSet.memoryList && 
-    Array.isArray(puzzleSet.memoryList) && 
-    puzzleSet.memoryList.length > 0 &&
+    (Array.isArray(puzzleSet.memoryList) ? puzzleSet.memoryList.length > 0 : Object.keys(puzzleSet.memoryList).length > 0) &&
     puzzleSet.memoryQuestion &&
-    puzzleSet.memoryAnswer
+    puzzleSet.memoryAnswer !== undefined
   );
-  
-  console.log('[MemoryRound] isDataValid:', isDataValid);
 
   if (!isDataValid) {
-    console.warn('[MemoryRound] Data validation failed, showing loading');
     return (
       <div className="flex-1 flex items-center justify-center min-h-[200px]">
         <div className="text-center space-y-4">
@@ -226,7 +231,8 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
                     key={index}
                     className="bg-secondary/50 border border-border rounded p-3 text-center"
                   >
-                    <span className="text-foreground font-cinzel text-lg">{item}</span>
+                    <span className="text-foreground font-cinzel text-lg">{item.name}</span>
+                    <span className="text-primary font-rajdhani text-sm ml-2">({item.value})</span>
                   </div>
                 ))}
               </div>

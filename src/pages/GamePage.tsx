@@ -70,34 +70,46 @@ const GamePage: React.FC = () => {
   const [memoryRoundNumber, setMemoryRoundNumber] = useState(1);
 
   // Load puzzle data - critical for both players
+  // First try to get puzzleSetId from room (Realtime DB), then fallback to team (Firestore)
   useEffect(() => {
     if (!roomCode) return;
+    
+    // Don't reload if we already have puzzleSet and it's valid
+    if (puzzleSet && !puzzleLoading) return;
     
     setPuzzleLoading(true);
     
     const loadPuzzle = async () => {
       try {
         console.log('[GamePage] Loading puzzle for room:', roomCode);
+        
+        // First check if room has puzzleSetId directly (new structure)
+        if (room?.puzzleSetId) {
+          console.log('[GamePage] Using puzzleSetId from room:', room.puzzleSetId);
+          const puzzle = await getPuzzleSet(room.puzzleSetId);
+          console.log('[GamePage] Loaded puzzle from room.puzzleSetId:', puzzle);
+          setPuzzleSet(puzzle);
+          setPuzzleLoading(false);
+          return;
+        }
+        
+        // Fallback: try to get from team document in Firestore
         const team = await getTeam(roomCode);
         console.log('[GamePage] Team data:', team);
         
         if (team) {
           setTeamId(team.teamId || 'TEAM');
-          console.log('[GamePage] Loading puzzleSet:', team.puzzleSet);
-          // getPuzzleSet now ALWAYS returns valid data (falls back to demo)
+          console.log('[GamePage] Loading puzzleSet from team:', team.puzzleSet);
           const puzzle = await getPuzzleSet(team.puzzleSet || 'demo');
           console.log('[GamePage] Loaded puzzle:', puzzle);
           setPuzzleSet(puzzle);
         } else {
           console.warn('[GamePage] No team found, using demo puzzle');
-          // No team exists - use demo puzzle directly
           const demoPuzzle = await getPuzzleSet('demo');
-          console.log('[GamePage] Demo puzzle loaded:', demoPuzzle);
           setPuzzleSet(demoPuzzle);
         }
       } catch (err) {
         console.error('[GamePage] Error loading puzzle:', err);
-        // On any error, use demo puzzle as fallback
         const demoPuzzle = await getPuzzleSet('demo');
         setPuzzleSet(demoPuzzle);
       } finally {
@@ -106,7 +118,7 @@ const GamePage: React.FC = () => {
     };
     
     loadPuzzle();
-  }, [roomCode]);
+  }, [roomCode, room?.puzzleSetId]);
 
   // Subscribe to room
   useEffect(() => {
