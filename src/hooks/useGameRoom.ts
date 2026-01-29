@@ -89,7 +89,8 @@ export function useGameRoom(): UseGameRoomReturn {
         throw new Error('Failed to get puzzle set');
       }
 
-      await createRoom(code);
+      // Pass puzzleSetId to createRoom so it's stored in Realtime DB
+      await createRoom(code, puzzleData.id);
       await createTeam(code, teamId, puzzleData.id);
       
       setRoomCode(code);

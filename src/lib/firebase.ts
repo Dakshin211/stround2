@@ -23,6 +23,7 @@ export interface Room {
   u: boolean;
   h: boolean;
   stage: GameStage;
+  puzzleSetId?: string; // Added: puzzleSetId stored directly in room
   alphabet: {
     current: string;
     transmissionId: number; // Unique ID for each letter transmission
@@ -32,17 +33,37 @@ export interface Room {
   hReady?: boolean;
 }
 
+// Memory list can be either an array of strings OR an object with key-value pairs
+export type MemoryListType = string[] | Record<string, number>;
+
 export interface PuzzleSet {
   alphabetClue: string;
   alphabetAnswer: string;
-  memoryList: string[];
+  memoryList: MemoryListType; // Can be array or object from Firestore
   memoryText: string;
   memoryQuestion: string;
-  memoryAnswer: string;
+  memoryAnswer: string | number; // Can be string or number
   memoryGuaranteedWords?: string[]; // Words that must be included in random selection
   partialCode1: string;
   partialCode2: string;
   navigationQR: string;
+}
+
+// Helper to convert memoryList to array of strings for display
+export function getMemoryListAsArray(memoryList: MemoryListType): string[] {
+  if (Array.isArray(memoryList)) {
+    return memoryList;
+  }
+  // It's an object - extract keys as the list items
+  return Object.keys(memoryList);
+}
+
+// Helper to get memory list with values (for puzzles that need key-value pairs)
+export function getMemoryListWithValues(memoryList: MemoryListType): Array<{ name: string; value: number }> {
+  if (Array.isArray(memoryList)) {
+    return memoryList.map((item, index) => ({ name: item, value: index }));
+  }
+  return Object.entries(memoryList).map(([name, value]) => ({ name, value }));
 }
 
 export interface Team {
@@ -70,12 +91,13 @@ export function generateRoomCode(): string {
 }
 
 // Realtime Database functions
-export async function createRoom(roomCode: string): Promise<void> {
+export async function createRoom(roomCode: string, puzzleSetId: string = 'demo'): Promise<void> {
   const roomRef = ref(database, `rooms/${roomCode}`);
   await set(roomRef, {
     u: true,
     h: true,
     stage: 'waiting',
+    puzzleSetId, // Store puzzleSetId directly in room
     alphabet: {
       current: '',
       transmissionId: 0,
@@ -204,10 +226,10 @@ export async function getTeam(roomCode: string): Promise<Team | null> {
 const DEMO_PUZZLE: PuzzleSet = {
   alphabetClue: 'I am stuck in darkness. Find me in the void.',
   alphabetAnswer: 'HELP',
-  memoryList: ['Eleven', 'Will', 'Dustin', 'Mike', 'Lucas', 'Nancy', 'Jonathan', 'Hopper'],
+  memoryList: { Eleven: 11, Will: 5, Dustin: 8, Mike: 7, Lucas: 6, Nancy: 12, Jonathan: 9, Hopper: 15 },
   memoryText: 'The gate opened in 1983 when a young girl with extraordinary powers escaped from Hawkins Lab. She had the number 011 on her wrist.',
-  memoryQuestion: 'Who opened the gate?',
-  memoryAnswer: 'ELEVEN',
+  memoryQuestion: 'What is the sum of all values that start with E?',
+  memoryAnswer: 11,
   memoryGuaranteedWords: ['Eleven'],
   partialCode1: '1983',
   partialCode2: '011',
