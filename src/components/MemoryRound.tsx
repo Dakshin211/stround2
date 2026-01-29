@@ -1,37 +1,47 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { GlitchText } from '@/components/GlitchText';
 import { ScaryButton } from '@/components/ScaryButton';
 import { Input } from '@/components/ui/input';
-import { PuzzleSet, getMemoryListAsArray, getMemoryListWithValues } from '@/lib/firebase';
+import { PuzzleSet, getMemoryListAsArray, getMemoryListWithValues, database } from '@/lib/firebase';
+import { ref, onValue, update, get, serverTimestamp, set } from 'firebase/database';
 
 interface MemoryRoundProps {
   role: 'U' | 'H';
   puzzleSet: PuzzleSet;
+  roomCode: string;
   onComplete: () => void;
   onAnswer: (correct: boolean) => void;
-  roundNumber?: number; // Track which round we're on
+  roundNumber?: number;
 }
+
+interface MemoryTimerState {
+  phase: 'memorize' | 'input' | 'waiting' | 'no_signal';
+  startTime: number; // Server timestamp when phase started
+  roundNumber: number;
+}
+
+const PHASE_DURATIONS = {
+  memorize: 60000, // 1 minute for memorization (U) / communication (H)
+  input: 30000,    // 30 seconds for H to input answer
+  waiting: 60000,  // 1 minute wait before retry
+};
 
 export const MemoryRound: React.FC<MemoryRoundProps> = ({ 
   role, 
   puzzleSet, 
+  roomCode,
   onComplete,
   onAnswer,
   roundNumber = 1
 }) => {
-  const [phase, setPhase] = useState<'memorize' | 'waiting' | 'question' | 'no_signal'>('memorize');
-  const [timeLeft, setTimeLeft] = useState(60); // 1 minute for U
-  const [hWaitTimeLeft, setHWaitTimeLeft] = useState(60); // 1 minute wait for H
-  const [questionTimeLeft, setQuestionTimeLeft] = useState(30); // 30 seconds for H input
-  const [noSignalTimeLeft, setNoSignalTimeLeft] = useState(30); // 30 seconds no signal
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [phase, setPhase] = useState<'memorize' | 'input' | 'waiting' | 'no_signal'>('memorize');
+  const [serverTimeOffset, setServerTimeOffset] = useState(0);
   const [answer, setAnswer] = useState('');
   const [isWrong, setIsWrong] = useState(false);
   const [attempts, setAttempts] = useState(0);
-
-  // Convert memoryList to array for display (handles both array and object formats)
-  const memoryListArray = useMemo(() => {
-    return getMemoryListAsArray(puzzleSet.memoryList);
-  }, [puzzleSet.memoryList]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get memory list with values for display
   const memoryListWithValues = useMemo(() => {
@@ -44,141 +54,177 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
       return memoryListWithValues;
     }
     
-    // For subsequent rounds, select 4-5 random items but include guaranteed words
     const guaranteed = puzzleSet.memoryGuaranteedWords || [];
     const otherItems = memoryListWithValues.filter(item => !guaranteed.includes(item.name));
-    
-    // Shuffle other items
     const shuffled = [...otherItems].sort(() => Math.random() - 0.5);
-    
-    // Pick 4-5 total, including guaranteed
-    const targetCount = 4 + Math.floor(Math.random() * 2); // 4 or 5
+    const targetCount = 4 + Math.floor(Math.random() * 2);
     const guaranteedItems = memoryListWithValues.filter(item => guaranteed.includes(item.name));
     const remainingSlots = targetCount - guaranteedItems.length;
     const selected = [...guaranteedItems, ...shuffled.slice(0, Math.max(0, remainingSlots))];
     
-    // Shuffle final result
     return selected.sort(() => Math.random() - 0.5);
   }, [memoryListWithValues, puzzleSet.memoryGuaranteedWords, roundNumber]);
 
-  // U Player: Memorize timer (60 seconds)
+  // Calculate server time offset for synchronization
   useEffect(() => {
-    if (role !== 'U' || phase !== 'memorize') return;
-    
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setPhase('waiting');
-          onComplete();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [role, phase, onComplete]);
+    const offsetRef = ref(database, '.info/serverTimeOffset');
+    const unsubscribe = onValue(offsetRef, (snapshot) => {
+      const offset = snapshot.val() || 0;
+      setServerTimeOffset(offset);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  // H Player: Wait 1 minute then show question
-  useEffect(() => {
-    if (role !== 'H' || phase !== 'memorize') return;
-    
-    const interval = setInterval(() => {
-      setHWaitTimeLeft((prev) => {
-        if (prev <= 1) {
-          setPhase('question');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [role, phase]);
+  // Get current server time
+  const getServerTime = useCallback(() => {
+    return Date.now() + serverTimeOffset;
+  }, [serverTimeOffset]);
 
-  // H Player: Question timer (30 seconds)
+  // Initialize or sync timer state from Firebase
   useEffect(() => {
-    if (role !== 'H' || phase !== 'question') return;
-    
-    const interval = setInterval(() => {
-      setQuestionTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Time's up - go to no signal
-          setPhase('no_signal');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [role, phase]);
+    if (!roomCode) return;
 
-  // H Player: No signal timer (30 seconds)
-  useEffect(() => {
-    if (role !== 'H' || phase !== 'no_signal') return;
+    const timerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
     
-    const interval = setInterval(() => {
-      setNoSignalTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Reset to waiting phase for next attempt
-          setPhase('memorize');
-          setHWaitTimeLeft(60);
-          setQuestionTimeLeft(30);
-          setNoSignalTimeLeft(30);
-          setAttempts(0);
-          return 0;
+    const initializeTimer = async () => {
+      const snapshot = await get(timerRef);
+      const timerState = snapshot.val() as MemoryTimerState | null;
+      
+      if (!timerState || timerState.roundNumber !== roundNumber) {
+        // Initialize new round - only U player initializes
+        if (role === 'U') {
+          const serverTime = getServerTime();
+          await set(timerRef, {
+            phase: 'memorize',
+            startTime: serverTime,
+            roundNumber: roundNumber
+          });
         }
-        return prev - 1;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [role, phase]);
-
-  // U Player: Waiting phase timer (reconnect countdown)
-  useEffect(() => {
-    if (role !== 'U' || phase !== 'waiting') return;
-    
-    // U waits 1 minute for reconnection
-    let reconnectTime = 60;
-    const interval = setInterval(() => {
-      reconnectTime -= 1;
-      if (reconnectTime <= 0) {
-        // Reset for next round
-        setPhase('memorize');
-        setTimeLeft(60);
       }
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [role, phase]);
+      setIsInitialized(true);
+    };
 
-  const handleSubmitAnswer = () => {
-    // Normalize both values to strings for comparison
+    initializeTimer();
+  }, [roomCode, roundNumber, role, getServerTime]);
+
+  // Subscribe to timer state changes
+  useEffect(() => {
+    if (!roomCode || !isInitialized) return;
+
+    const memoryTimerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
+    
+    const unsubscribe = onValue(memoryTimerRef, (snapshot) => {
+      const timerState = snapshot.val() as MemoryTimerState | null;
+      
+      if (timerState) {
+        setPhase(timerState.phase);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [roomCode, isInitialized]);
+
+  // Calculate and update time left based on server timestamp
+  useEffect(() => {
+    if (!roomCode || !isInitialized) return;
+
+    const updateTimeLeft = async () => {
+      const memoryTimerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
+      const snapshot = await get(memoryTimerRef);
+      const timerState = snapshot.val() as MemoryTimerState | null;
+      
+      if (!timerState) return;
+
+      const serverTime = getServerTime();
+      const elapsed = serverTime - timerState.startTime;
+      const phaseDuration = PHASE_DURATIONS[timerState.phase] || 60000;
+      const remaining = Math.max(0, Math.ceil((phaseDuration - elapsed) / 1000));
+      
+      setTimeLeft(remaining);
+
+      // Handle phase transitions
+      if (remaining <= 0) {
+        await handlePhaseComplete(timerState.phase);
+      }
+    };
+
+    // Update every 100ms for smooth countdown
+    const interval = setInterval(updateTimeLeft, 100);
+    updateTimeLeft();
+
+    return () => clearInterval(interval);
+  }, [roomCode, isInitialized, getServerTime]);
+
+  // Handle phase transitions
+  const handlePhaseComplete = async (currentPhase: string) => {
+    const memoryTimerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
+    const serverTime = getServerTime();
+
+    switch (currentPhase) {
+      case 'memorize':
+        // Memorize time over - switch to input phase
+        if (role === 'U') {
+          await update(memoryTimerRef, {
+            phase: 'input',
+            startTime: serverTime
+          });
+          onComplete();
+        }
+        break;
+      
+      case 'input':
+        // Input time over without correct answer - go to waiting
+        if (role === 'H') {
+          await update(memoryTimerRef, {
+            phase: 'waiting',
+            startTime: serverTime
+          });
+          onAnswer(false);
+        }
+        break;
+      
+      case 'waiting':
+        // Wait time over - restart memorize phase
+        if (role === 'U') {
+          await update(memoryTimerRef, {
+            phase: 'memorize',
+            startTime: serverTime,
+            roundNumber: roundNumber + 1
+          });
+        }
+        setAttempts(0);
+        break;
+    }
+  };
+
+  const handleSubmitAnswer = async () => {
     const userAnswer = answer.trim();
     const correctAnswer = String(puzzleSet.memoryAnswer);
-    
-    // Compare as strings (case-insensitive for text answers)
     const isCorrect = userAnswer.toUpperCase() === correctAnswer.toUpperCase();
     
     if (isCorrect) {
       onAnswer(true);
     } else {
-      setAttempts((prev) => prev + 1);
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
       setIsWrong(true);
       setAnswer('');
       setTimeout(() => setIsWrong(false), 2000);
       
-      if (attempts >= 1) {
+      if (newAttempts >= 2) {
         // Two wrong attempts - go to no signal
-        setPhase('no_signal');
+        const memoryTimerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
+        const serverTime = getServerTime();
+        await update(memoryTimerRef, {
+          phase: 'waiting',
+          startTime: serverTime
+        });
         onAnswer(false);
       }
     }
   };
 
-  // Safety check - if puzzleSet data is incomplete, show loading
+  // Safety check for data validity
   const isDataValid = Boolean(
     puzzleSet && 
     puzzleSet.memoryList && 
@@ -187,43 +233,43 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
     puzzleSet.memoryAnswer !== undefined
   );
 
-  if (!isDataValid) {
+  if (!isDataValid || !isInitialized) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[200px]">
         <div className="text-center space-y-4">
           <div className="animate-pulse">
-            <p className="text-primary font-cinzel text-2xl flicker-slow">LOADING...</p>
+            <p className="text-primary font-cinzel text-2xl flicker-slow">SYNCING...</p>
           </div>
           <p className="text-muted-foreground font-rajdhani font-medium">
-            Preparing memory challenge...
+            Establishing connection...
           </p>
         </div>
       </div>
     );
   }
 
+  // Format time display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // U Player View - No headers here, they come from GamePage
   if (role === 'U') {
     return (
       <div className="space-y-6">
         {phase === 'memorize' && (
-          <div className="text-center">
-            <p className="text-muted-foreground font-rajdhani text-sm font-medium">
-              You have 1 minute to memorize
-            </p>
-          </div>
-        )}
-
-        {phase === 'memorize' && (
           <>
-            {/* Timer */}
             <div className="text-center">
-              <p className={`text-4xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
-                {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+              <p className="text-muted-foreground font-rajdhani text-sm font-medium mb-2">
+                Memorize this information
+              </p>
+              <p className={`text-5xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
+                {formatTime(timeLeft)}
               </p>
             </div>
 
-            {/* Memory List */}
             <div className="bg-card/80 border border-border rounded-lg p-6 backdrop-blur-sm space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {displayedMemoryList.map((item, index) => (
@@ -231,16 +277,15 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
                     key={index}
                     className="bg-secondary/50 border border-border rounded p-3 text-center"
                   >
-                    <span className="text-foreground font-cinzel text-lg">{item.name}</span>
-                    <span className="text-primary font-rajdhani text-sm ml-2">({item.value})</span>
+                    <span className="text-foreground font-cinzel text-xl">{item.name}</span>
+                    <span className="text-primary font-rajdhani text-base ml-2">({item.value})</span>
                   </div>
                 ))}
               </div>
               
-              {/* Only show memoryText on first round */}
-              {roundNumber === 1 && (
+              {roundNumber === 1 && puzzleSet.memoryText && (
                 <div className="border-t border-border pt-4">
-                  <p className="text-foreground font-rajdhani leading-relaxed text-lg font-medium">
+                  <p className="text-foreground font-rajdhani leading-relaxed text-xl font-medium">
                     {puzzleSet.memoryText}
                   </p>
                 </div>
@@ -249,17 +294,26 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
           </>
         )}
 
-        {phase === 'waiting' && (
-          <div className="text-center space-y-4">
-            <GlitchText as="h3" className="text-xl">
+        {(phase === 'input' || phase === 'waiting') && (
+          <div className="text-center space-y-6">
+            <GlitchText as="h3" className="text-3xl">
               TIME'S UP
             </GlitchText>
-            <p className="text-muted-foreground font-rajdhani font-medium">
-              Hawkins Lab is trying to decode your transmission...
-            </p>
-            <p className="text-muted-foreground/70 font-rajdhani text-sm">
-              You can reconnect in 1 minute
-            </p>
+            
+            <div className="bg-card/60 border border-border rounded-lg p-6 backdrop-blur-sm">
+              <p className="text-muted-foreground font-rajdhani font-medium text-xl mb-4">
+                Hawkins Lab is trying to decode your transmission...
+              </p>
+              
+              <div className="space-y-2">
+                <p className="text-muted-foreground/70 font-rajdhani text-base">
+                  {phase === 'input' ? 'Waiting for response...' : 'Reconnecting in:'}
+                </p>
+                <p className={`text-5xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
+                  {formatTime(timeLeft)}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -269,36 +323,33 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   // H Player View - No headers here, they come from GamePage
   return (
     <div className="space-y-6">
-
       {phase === 'memorize' && (
         <div className="text-center space-y-4">
-          {/* Wait countdown */}
-          <p className={`text-4xl font-cinzel ${hWaitTimeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
-            {Math.floor(hWaitTimeLeft / 60)}:{(hWaitTimeLeft % 60).toString().padStart(2, '0')}
+          <p className={`text-5xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
+            {formatTime(timeLeft)}
           </p>
           
           <div className="static-noise p-8 rounded-lg">
-            <p className="text-muted-foreground font-rajdhani font-medium text-lg">
+            <p className="text-muted-foreground font-rajdhani font-medium text-2xl">
               Communicate with the Upside Down
             </p>
-            <p className="text-muted-foreground/70 font-rajdhani text-sm mt-2">
+            <p className="text-muted-foreground/70 font-rajdhani text-base mt-2">
               Prepare to solve the upcoming problem together
             </p>
           </div>
         </div>
       )}
 
-      {phase === 'question' && (
+      {phase === 'input' && (
         <div className="space-y-4">
-          {/* Question Timer */}
           <div className="text-center">
-            <p className={`text-3xl font-cinzel ${questionTimeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
-              {questionTimeLeft}s
+            <p className={`text-5xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
+              {timeLeft}s
             </p>
           </div>
           
           <div className="bg-card/80 border border-primary/50 rounded-lg p-6 backdrop-blur-sm">
-            <p className="text-foreground font-rajdhani text-xl font-semibold text-center">
+            <p className="text-foreground font-rajdhani text-2xl font-semibold text-center">
               {puzzleSet.memoryQuestion}
             </p>
           </div>
@@ -308,7 +359,7 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
               value={answer}
               onChange={(e) => setAnswer(e.target.value.toUpperCase())}
               placeholder="TYPE YOUR ANSWER..."
-              className={`bg-card/80 border-border text-center font-cinzel text-xl tracking-wider ${
+              className={`bg-card/80 border-border text-center font-cinzel text-2xl tracking-wider ${
                 isWrong ? 'border-destructive animate-shake' : ''
               }`}
               autoFocus
@@ -316,7 +367,7 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
           </div>
 
           {isWrong && (
-            <p className="text-destructive font-rajdhani text-center text-sm flicker font-semibold">
+            <p className="text-destructive font-rajdhani text-center text-base flicker font-semibold">
               WRONG! {2 - attempts} attempt{2 - attempts !== 1 ? 's' : ''} remaining
             </p>
           )}
@@ -331,16 +382,19 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
         </div>
       )}
 
-      {phase === 'no_signal' && (
+      {phase === 'waiting' && (
         <div className="text-center space-y-4 bg-destructive/20 p-8 rounded-lg border border-destructive/50">
-          <p className="text-destructive font-cinzel text-2xl flicker">
+          <p className="text-destructive font-cinzel text-3xl flicker">
             NO SIGNAL
           </p>
-          <p className="text-muted-foreground font-rajdhani font-medium">
+          <p className="text-muted-foreground font-rajdhani font-medium text-lg">
             Can't use walkie-talkie right now...
           </p>
-          <p className="text-muted-foreground/70 font-rajdhani text-sm">
-            Reconnecting in {noSignalTimeLeft}s
+          <p className="text-muted-foreground/70 font-rajdhani text-base">
+            Reconnecting in:
+          </p>
+          <p className={`text-5xl font-cinzel ${timeLeft <= 10 ? 'text-destructive flicker' : 'text-primary flicker-slow'}`}>
+            {formatTime(timeLeft)}
           </p>
         </div>
       )}

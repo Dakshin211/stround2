@@ -388,6 +388,7 @@ const GamePage: React.FC = () => {
           <MemoryRound 
             role={role} 
             puzzleSet={puzzleSet}
+            roomCode={roomCode}
             onComplete={handleMemoryComplete}
             onAnswer={handleMemoryAnswer}
             roundNumber={memoryRoundNumber}
@@ -444,8 +445,8 @@ const GamePage: React.FC = () => {
         <div className="relative z-10 flex flex-col flex-1">
           {/* Header - Single clean header */}
           <div className="text-center mb-4">
-            <p className="text-accent font-cinzel text-xs tracking-[0.3em] mb-1">STRANGER THINGS</p>
-            <GlitchText as="h1" className="text-xl" noFlicker>
+            <p className="text-primary font-cinzel text-sm tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
+            <GlitchText as="h1" className="text-2xl text-accent" noFlicker>
               {isAlphabetStage ? 'SEND YOUR MESSAGE' : 'THE UPSIDE DOWN'}
             </GlitchText>
           </div>
@@ -558,8 +559,8 @@ const GamePage: React.FC = () => {
       <div className="relative z-10 flex flex-col flex-1">
         {/* Header - Single clean header */}
         <div className="text-center p-4">
-          <p className="text-accent font-cinzel text-xs tracking-[0.3em] mb-1">STRANGER THINGS</p>
-          <GlitchText as="h1" className="text-xl">
+          <p className="text-primary font-cinzel text-sm tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
+          <GlitchText as="h1" className="text-2xl text-accent">
             {isAlphabetStage ? (hasSignal ? 'INCOMING SIGNAL' : 'SEARCHING...') : 'HAWKINS LAB'}
           </GlitchText>
         </div>
