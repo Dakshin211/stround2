@@ -322,9 +322,17 @@ const GamePage: React.FC = () => {
     if (!roomCode || !puzzleSet) return;
     
     if (correct) {
-      // Show partialCode1 reveal for H
-      setShowCode1Reveal(true);
-      setCodesH(puzzleSet.partialCode1);
+      // Update room stage to symbol so both players transition
+      await updateRoomStage(roomCode, 'symbol');
+      
+      // H shows partialCode1 reveal, U waits for envelope
+      if (role === 'H') {
+        setShowCode1Reveal(true);
+        setCodesH(puzzleSet.partialCode1);
+      } else {
+        // U goes to waiting for envelope phase
+        setSymbolPhase('waiting_envelope');
+      }
     } else {
       // Increment round number for next attempt
       setMemoryRoundNumber(prev => prev + 1);
