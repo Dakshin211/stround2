@@ -9,7 +9,9 @@ import { AlphabetWall } from '@/components/AlphabetWall';
 import { CommunicationUnlock } from '@/components/CommunicationUnlock';
 import { MemoryRound } from '@/components/MemoryRound';
 import { SymbolPuzzle } from '@/components/SymbolPuzzle';
-import { FinalRescue } from '@/components/FinalRescue';
+import { CodeReveal } from '@/components/CodeReveal';
+import { QRReveal } from '@/components/QRReveal';
+import { FinalPasscode } from '@/components/FinalPasscode';
 import { VictoryScreen } from '@/components/VictoryScreen';
 import { Input } from '@/components/ui/input';
 import { 
@@ -22,8 +24,10 @@ import {
   getTeam,
   Room, 
   PuzzleSet,
-  GameStage
+  GameStage,
+  database
 } from '@/lib/firebase';
+import { ref, update } from 'firebase/database';
 import upsideDownBg from '@/assets/upside-down-bg.png';
 import alphabetWallBg from '@/assets/alphabet-wall-original.png';
 
@@ -68,6 +72,13 @@ const GamePage: React.FC = () => {
   const [receivedSymbolCode, setReceivedSymbolCode] = useState<string | null>(null);
   const [showVictory, setShowVictory] = useState(false);
   const [memoryRoundNumber, setMemoryRoundNumber] = useState(1);
+  
+  // New flow states
+  const [symbolPhase, setSymbolPhase] = useState<'waiting_envelope' | 'symbol_decode' | 'code_input' | 'transmitted' | 'h_waiting' | 'h_code_reveal' | 'h_qr'>('waiting_envelope');
+  const [showCode1Reveal, setShowCode1Reveal] = useState(false);
+  const [showCode2Reveal, setShowCode2Reveal] = useState(false);
+  const [showQRReveal, setShowQRReveal] = useState(false);
+  const [showFinalPasscode, setShowFinalPasscode] = useState(false);
 
   // Load puzzle data - critical for both players
   // First try to get puzzleSetId from room (Realtime DB), then fallback to team (Firestore)
@@ -311,19 +322,61 @@ const GamePage: React.FC = () => {
     if (!roomCode || !puzzleSet) return;
     
     if (correct) {
+      // Show partialCode1 reveal for H
+      setShowCode1Reveal(true);
       setCodesH(puzzleSet.partialCode1);
-      await updateRoomStage(roomCode, 'symbol');
     } else {
       // Increment round number for next attempt
       setMemoryRoundNumber(prev => prev + 1);
     }
   };
 
-  const handleSymbolCodeSubmit = async (code: string) => {
+  const handleCode1RevealComplete = async () => {
+    if (!roomCode) return;
+    setShowCode1Reveal(false);
+    // H goes to waiting, U gets envelope prompt
+    await updateRoomStage(roomCode, 'symbol');
+    setSymbolPhase(role === 'U' ? 'waiting_envelope' : 'h_waiting');
+  };
+
+  const handleEnvelopeReceived = () => {
+    setSymbolPhase('symbol_decode');
+  };
+
+  const handleSymbolCodeTransmit = async (code: string) => {
     if (!roomCode || !puzzleSet) return;
     setCodesU(puzzleSet.partialCode2);
     setReceivedSymbolCode(code);
+    setSymbolPhase('transmitted');
+    
+    // Update room to notify H
+    await update(ref(database, `rooms/${roomCode}`), {
+      symbolCode: code
+    });
     await updateRoomStage(roomCode, 'symbol_received');
+  };
+
+  // Watch for symbol code received
+  useEffect(() => {
+    if (role !== 'H' || !room || room.stage !== 'symbol_received') return;
+    
+    // H received the code - show code reveal
+    if (puzzleSet?.partialCode2) {
+      setReceivedSymbolCode(puzzleSet.partialCode2);
+      setShowCode2Reveal(true);
+    }
+  }, [room?.stage, role, puzzleSet]);
+
+  const handleCode2RevealComplete = () => {
+    setShowCode2Reveal(false);
+    setShowQRReveal(true);
+  };
+
+  const handleKeyFound = async () => {
+    if (!roomCode) return;
+    setShowQRReveal(false);
+    setShowFinalPasscode(true);
+    await updateRoomStage(roomCode, 'final');
   };
 
   const handleVictory = async () => {
@@ -397,23 +450,51 @@ const GamePage: React.FC = () => {
       
       case 'symbol':
       case 'symbol_received':
+        // Show code reveals first
+        if (showCode1Reveal && role === 'H') {
+          return (
+            <CodeReveal 
+              code={puzzleSet.partialCode1}
+              title="CODE RECEIVED"
+              duration={15}
+              onComplete={handleCode1RevealComplete}
+            />
+          );
+        }
+        
+        if (showCode2Reveal && role === 'H') {
+          return (
+            <CodeReveal 
+              code={puzzleSet.partialCode2}
+              title="TRANSMISSION RECEIVED"
+              duration={15}
+              onComplete={handleCode2RevealComplete}
+            />
+          );
+        }
+        
+        if (showQRReveal && role === 'H') {
+          return <QRReveal onKeyFound={handleKeyFound} />;
+        }
+        
         return (
           <SymbolPuzzle 
             role={role}
+            partialCode1={puzzleSet.partialCode1}
             partialCode2={puzzleSet.partialCode2}
             receivedCode={receivedSymbolCode}
-            onCodeSubmit={handleSymbolCodeSubmit}
+            phase={symbolPhase}
+            onEnvelopeReceived={handleEnvelopeReceived}
+            onCodeTransmit={handleSymbolCodeTransmit}
           />
         );
       
       case 'final':
         const expectedCode = `${codesH}${teamId}${codesU}`;
         return (
-          <FinalRescue 
-            role={role}
-            navigationQR={puzzleSet.navigationQR}
+          <FinalPasscode 
             expectedCode={expectedCode}
-            onVictory={handleVictory}
+            onSuccess={handleVictory}
           />
         );
       
@@ -445,8 +526,8 @@ const GamePage: React.FC = () => {
         <div className="relative z-10 flex flex-col flex-1">
           {/* Header - Single clean header */}
           <div className="text-center mb-4">
-            <p className="text-primary font-cinzel text-sm tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
-            <GlitchText as="h1" className="text-2xl text-accent" noFlicker>
+            <p className="text-primary font-cinzel text-lg tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
+            <GlitchText as="h1" className="text-3xl text-accent" noFlicker>
               {isAlphabetStage ? 'SEND YOUR MESSAGE' : 'THE UPSIDE DOWN'}
             </GlitchText>
           </div>
@@ -559,8 +640,8 @@ const GamePage: React.FC = () => {
       <div className="relative z-10 flex flex-col flex-1">
         {/* Header - Single clean header */}
         <div className="text-center p-4">
-          <p className="text-primary font-cinzel text-sm tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
-          <GlitchText as="h1" className="text-2xl text-accent">
+          <p className="text-primary font-cinzel text-lg tracking-[0.3em] mb-1 stranger-title">STRANGER THINGS</p>
+          <GlitchText as="h1" className="text-3xl text-accent">
             {isAlphabetStage ? (hasSignal ? 'INCOMING SIGNAL' : 'SEARCHING...') : 'HAWKINS LAB'}
           </GlitchText>
         </div>
