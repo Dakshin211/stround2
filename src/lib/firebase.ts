@@ -40,6 +40,7 @@ export interface PuzzleSet {
   alphabetClue: string;
   alphabetAnswer: string;
   memoryList: MemoryListType; // Can be array or object from Firestore
+  memoryConfirmList?: MemoryListType; // Subset shown on retry attempts
   memoryText: string;
   memoryQuestion: string;
   memoryAnswer: string | number; // Can be string or number

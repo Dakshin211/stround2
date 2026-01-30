@@ -23,7 +23,7 @@ interface MemoryTimerState {
 const PHASE_DURATIONS = {
   memorize: 60000, // 1 minute for memorization (U) / communication (H)
   input: 30000,    // 30 seconds for H to input answer
-  waiting: 60000,  // 1 minute wait before retry
+  waiting: 30000,  // 30 seconds wait before retry
 };
 
 export const MemoryRound: React.FC<MemoryRoundProps> = ({ 
@@ -48,22 +48,34 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
     return getMemoryListWithValues(puzzleSet.memoryList);
   }, [puzzleSet.memoryList]);
 
-  // Generate random subset of memory list for rounds after first
+  // Get confirm list (for retry attempts)
+  const memoryConfirmListWithValues = useMemo(() => {
+    if (puzzleSet.memoryConfirmList) {
+      return getMemoryListWithValues(puzzleSet.memoryConfirmList);
+    }
+    return [];
+  }, [puzzleSet.memoryConfirmList]);
+
+  // Generate list based on round number
+  // Round 1: Show all 10 memoryList items + memoryText
+  // Round 2+: Show memoryConfirmList + remaining items from memoryList (total 5), no memoryText
   const displayedMemoryList = useMemo(() => {
     if (roundNumber === 1) {
       return memoryListWithValues;
     }
     
-    const guaranteed = puzzleSet.memoryGuaranteedWords || [];
-    const otherItems = memoryListWithValues.filter(item => !guaranteed.includes(item.name));
-    const shuffled = [...otherItems].sort(() => Math.random() - 0.5);
-    const targetCount = 4 + Math.floor(Math.random() * 2);
-    const guaranteedItems = memoryListWithValues.filter(item => guaranteed.includes(item.name));
-    const remainingSlots = targetCount - guaranteedItems.length;
-    const selected = [...guaranteedItems, ...shuffled.slice(0, Math.max(0, remainingSlots))];
+    // For retry: show memoryConfirmList + remaining from memoryList (not in confirmList) = 5 total
+    const confirmNames = memoryConfirmListWithValues.map(item => item.name);
+    const remainingItems = memoryListWithValues.filter(item => !confirmNames.includes(item.name));
+    const shuffledRemaining = [...remainingItems].sort(() => Math.random() - 0.5);
+    
+    // Take enough from remaining to make total of 5
+    const targetTotal = 5;
+    const remainingSlots = Math.max(0, targetTotal - memoryConfirmListWithValues.length);
+    const selected = [...memoryConfirmListWithValues, ...shuffledRemaining.slice(0, remainingSlots)];
     
     return selected.sort(() => Math.random() - 0.5);
-  }, [memoryListWithValues, puzzleSet.memoryGuaranteedWords, roundNumber]);
+  }, [memoryListWithValues, memoryConfirmListWithValues, roundNumber]);
 
   // Calculate server time offset for synchronization
   useEffect(() => {
@@ -84,19 +96,22 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   useEffect(() => {
     if (!roomCode) return;
 
-    const timerRef = ref(database, `rooms/${roomCode}/memoryTimer`);
+    const timerRefPath = ref(database, `rooms/${roomCode}/memoryTimer`);
     
     const initializeTimer = async () => {
-      const snapshot = await get(timerRef);
+      const snapshot = await get(timerRefPath);
       const timerState = snapshot.val() as MemoryTimerState | null;
       
       if (!timerState || timerState.roundNumber !== roundNumber) {
         // Initialize new round - only U player initializes
         if (role === 'U') {
+          // Use server time offset to get accurate server time
           const serverTime = getServerTime();
-          await set(timerRef, {
+          // Round to nearest second to prevent 57s bug
+          const roundedTime = Math.floor(serverTime / 1000) * 1000;
+          await set(timerRefPath, {
             phase: 'memorize',
-            startTime: serverTime,
+            startTime: roundedTime,
             roundNumber: roundNumber
           });
         }
