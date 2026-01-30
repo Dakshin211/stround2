@@ -23,7 +23,7 @@ interface MemoryTimerState {
 const PHASE_DURATIONS = {
   memorize: 60000, // 1 minute for memorization (U) / communication (H)
   input: 30000,    // 30 seconds for H to input answer
-  waiting: 30000,  // 30 seconds wait before retry
+  waiting: 30000,  // 30 seconds wait before retry (was 60s, now 30s)
 };
 
 export const MemoryRound: React.FC<MemoryRoundProps> = ({ 
@@ -107,8 +107,9 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
         if (role === 'U') {
           // Use server time offset to get accurate server time
           const serverTime = getServerTime();
-          // Round to nearest second to prevent 57s bug
-          const roundedTime = Math.floor(serverTime / 1000) * 1000;
+          // Round DOWN to nearest second boundary, then add 1 second delay
+          // This ensures both clients see the same start time and prevents 57s bug
+          const roundedTime = (Math.floor(serverTime / 1000) + 1) * 1000;
           await set(timerRefPath, {
             phase: 'memorize',
             startTime: roundedTime,
