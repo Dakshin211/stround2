@@ -67,14 +67,21 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
     // For retry: show memoryConfirmList + remaining from memoryList (not in confirmList) = 5 total
     const confirmNames = memoryConfirmListWithValues.map(item => item.name);
     const remainingItems = memoryListWithValues.filter(item => !confirmNames.includes(item.name));
-    const shuffledRemaining = [...remainingItems].sort(() => Math.random() - 0.5);
+    
+    // Shuffle remaining items deterministically based on roundNumber to prevent re-shuffling on re-render
+    const shuffledRemaining = [...remainingItems].sort((a, b) => {
+      const hashA = a.name.charCodeAt(0) + roundNumber;
+      const hashB = b.name.charCodeAt(0) + roundNumber;
+      return hashA - hashB;
+    });
     
     // Take enough from remaining to make total of 5
     const targetTotal = 5;
     const remainingSlots = Math.max(0, targetTotal - memoryConfirmListWithValues.length);
     const selected = [...memoryConfirmListWithValues, ...shuffledRemaining.slice(0, remainingSlots)];
     
-    return selected.sort(() => Math.random() - 0.5);
+    // Sort deterministically for display
+    return selected.sort((a, b) => a.name.localeCompare(b.name));
   }, [memoryListWithValues, memoryConfirmListWithValues, roundNumber]);
 
   // Calculate server time offset for synchronization
