@@ -79,6 +79,7 @@ const GamePage: React.FC = () => {
   const [showCode2Reveal, setShowCode2Reveal] = useState(false);
   const [showQRReveal, setShowQRReveal] = useState(false);
   const [showFinalPasscode, setShowFinalPasscode] = useState(false);
+  const [uVictoryComplete, setUVictoryComplete] = useState(false);
 
   // Load puzzle data - critical for both players
   // First try to get puzzleSetId from room (Realtime DB), then fallback to team (Firestore)
@@ -395,9 +396,61 @@ const GamePage: React.FC = () => {
 
   if (!roomCode) return null;
 
+  // Handle U victory complete - go back to waiting
+  const handleUVictoryComplete = () => {
+    setUVictoryComplete(true);
+    setShowVictory(false);
+  };
+
   // Victory Screen - different message for U and H
-  if (showVictory || room?.stage === 'victory') {
-    return <VictoryScreen teamId={teamId} role={role} />;
+  if ((showVictory || room?.stage === 'victory') && !uVictoryComplete) {
+    return (
+      <VictoryScreen 
+        teamId={teamId} 
+        role={role} 
+        onUComplete={role === 'U' ? handleUVictoryComplete : undefined}
+      />
+    );
+  }
+  
+  // U player after victory complete - show waiting screen
+  if (role === 'U' && uVictoryComplete) {
+    return (
+      <div 
+        className="min-h-screen flex flex-col relative overflow-hidden"
+        style={{
+          backgroundImage: `url(${upsideDownBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          transform: 'rotate(180deg)'
+        }}
+      >
+        <CRTOverlay />
+        <ThunderEffect intensity="light" />
+        <div className="absolute inset-0 page-overlay" />
+        
+        <div className="relative z-10 flex flex-col flex-1 items-center justify-center p-8">
+          <div className="text-center space-y-6">
+            <p className="text-primary font-cinzel text-lg tracking-[0.3em] stranger-title flicker-slow">
+              STRANGER THINGS
+            </p>
+            <GlitchText as="h2" className="text-3xl text-accent">
+              YOU HAVE DONE EVERYTHING
+            </GlitchText>
+            <p className="text-foreground font-rajdhani text-xl font-medium">
+              Wait until they reach the Upside Down...
+            </p>
+            <div className="animate-pulse mt-8">
+              <div className="inline-block px-6 py-3 border border-primary/50 rounded-lg bg-primary/10">
+                <p className="text-primary font-cinzel text-lg tracking-widest">
+                  AWAITING RESCUE...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const stage = room?.stage || 'alphabet';

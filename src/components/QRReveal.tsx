@@ -53,18 +53,15 @@ export const QRReveal: React.FC<QRRevealProps> = ({ onKeyFound }) => {
         FIND THE PORTAL
       </GlitchText>
       
-      {/* Main QR Code - Updated image */}
+      {/* Main QR Code - Red/Black themed image */}
       <div 
-        className="bg-black/90 border-2 border-primary rounded-lg p-4 backdrop-blur-sm"
+        className="border-2 border-primary rounded-lg p-4 backdrop-blur-sm overflow-hidden"
         style={{ maxWidth: '280px' }}
       >
         <img 
-          src="https://i.postimg.cc/WpdTmc1R/navigation.png"
+          src="https://i.postimg.cc/Dm39FDG5/qr-navigation.png"
           alt="QR Code"
           className="w-full"
-          style={{ 
-            filter: 'invert(1) sepia(100%) saturate(300%) hue-rotate(-50deg)',
-          }}
         />
       </div>
       
@@ -81,16 +78,13 @@ export const QRReveal: React.FC<QRRevealProps> = ({ onKeyFound }) => {
           style={{ opacity: secondQROpacity }}
         >
           <div 
-            className="bg-black/90 border border-primary/50 rounded-lg p-2"
+            className="border border-primary/50 rounded-lg p-2 overflow-hidden"
             style={{ maxWidth: '140px' }}
           >
             <img 
               src="https://i.postimg.cc/SnH2jvXk/image.png"
               alt="Key QR Code"
               className="w-full"
-              style={{ 
-                filter: 'invert(1) sepia(100%) saturate(300%) hue-rotate(-50deg)',
-              }}
             />
           </div>
           
