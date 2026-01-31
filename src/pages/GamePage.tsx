@@ -395,9 +395,9 @@ const GamePage: React.FC = () => {
 
   if (!roomCode) return null;
 
-  // Victory Screen
+  // Victory Screen - different message for U and H
   if (showVictory || room?.stage === 'victory') {
-    return <VictoryScreen teamId={teamId} />;
+    return <VictoryScreen teamId={teamId} role={role} />;
   }
 
   const stage = room?.stage || 'alphabet';
@@ -498,10 +498,31 @@ const GamePage: React.FC = () => {
         );
       
       case 'final':
-        const expectedCode = `${codesH}${teamId}${codesU}`;
+        // U player sees waiting message, H player gets passcode input
+        if (role === 'U') {
+          return (
+            <div className="flex-1 flex flex-col items-center justify-center space-y-6">
+              <GlitchText as="h2" className="text-3xl text-accent">
+                YOU HAVE DONE EVERYTHING
+              </GlitchText>
+              <p className="text-foreground font-rajdhani text-xl font-medium text-center">
+                Wait until they reach the Upside Down...
+              </p>
+              <div className="animate-pulse">
+                <p className="text-primary font-cinzel text-lg tracking-widest">
+                  AWAITING FINAL TRANSMISSION...
+                </p>
+              </div>
+            </div>
+          );
+        }
+        
         return (
           <FinalPasscode 
-            expectedCode={expectedCode}
+            partialCode1={puzzleSet.partialCode1}
+            teamId={teamId}
+            partialCode2={puzzleSet.partialCode2}
+            expectedCode=""
             onSuccess={handleVictory}
           />
         );

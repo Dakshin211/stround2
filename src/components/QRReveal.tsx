@@ -53,13 +53,13 @@ export const QRReveal: React.FC<QRRevealProps> = ({ onKeyFound }) => {
         FIND THE PORTAL
       </GlitchText>
       
-      {/* Main QR Code */}
+      {/* Main QR Code - Updated image */}
       <div 
         className="bg-black/90 border-2 border-primary rounded-lg p-4 backdrop-blur-sm"
         style={{ maxWidth: '280px' }}
       >
         <img 
-          src="https://i.postimg.cc/34XDsFJt/image.png"
+          src="https://i.postimg.cc/WpdTmc1R/navigation.png"
           alt="QR Code"
           className="w-full"
           style={{ 

@@ -6,14 +6,22 @@ import { Input } from '@/components/ui/input';
 interface FinalPasscodeProps {
   onSuccess: () => void;
   expectedCode: string;
+  partialCode1: string;
+  teamId: string;
+  partialCode2: string;
 }
 
 export const FinalPasscode: React.FC<FinalPasscodeProps> = ({ 
   onSuccess,
-  expectedCode 
+  partialCode1,
+  teamId,
+  partialCode2
 }) => {
   const [passcode, setPasscode] = useState('');
   const [isWrong, setIsWrong] = useState(false);
+
+  // Correct passcode is partialCode1 + teamId + partialCode2 (concatenation)
+  const expectedCode = `${partialCode1}${teamId}${partialCode2}`;
 
   const handleSubmit = () => {
     if (passcode.trim().toUpperCase() === expectedCode.toUpperCase()) {
