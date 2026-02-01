@@ -91,7 +91,7 @@ export const VictoryScreen: React.FC<VictoryScreenProps> = ({ teamId, role, onUC
     <div 
       className="fixed inset-0 flex items-center justify-center overflow-hidden"
       style={{ 
-        transform: role === 'U' ? `rotate(${rotation}deg)` : undefined,
+        // U page: don't rotate the whole page, just animate
         transition: 'transform 1.5s cubic-bezier(0.4, 0, 0.2, 1)',
         animation: shakeIntensity > 0 ? `shake ${0.1}s ease-in-out infinite` : undefined,
       }}
@@ -99,7 +99,7 @@ export const VictoryScreen: React.FC<VictoryScreenProps> = ({ teamId, role, onUC
       {/* Dynamic background */}
       <div 
         className="absolute inset-0 transition-all duration-1000"
-        style={{ 
+        style={{
           background: phase === 'dark' 
             ? 'radial-gradient(ellipse at center, hsl(var(--void)) 0%, #000 100%)'
             : phase === 'tear'
@@ -325,10 +325,10 @@ export const VictoryScreen: React.FC<VictoryScreenProps> = ({ teamId, role, onUC
       {/* Custom animations */}
       <style>{`
         @keyframes shake {
-          0%, 100% { transform: translate(0, 0) ${role === 'U' ? `rotate(${rotation}deg)` : ''}; }
-          25% { transform: translate(${shakeIntensity}px, -${shakeIntensity}px) ${role === 'U' ? `rotate(${rotation}deg)` : ''}; }
-          50% { transform: translate(-${shakeIntensity}px, ${shakeIntensity}px) ${role === 'U' ? `rotate(${rotation}deg)` : ''}; }
-          75% { transform: translate(${shakeIntensity}px, ${shakeIntensity}px) ${role === 'U' ? `rotate(${rotation}deg)` : ''}; }
+          0%, 100% { transform: translate(0, 0); }
+          25% { transform: translate(${shakeIntensity}px, -${shakeIntensity}px); }
+          50% { transform: translate(-${shakeIntensity}px, ${shakeIntensity}px); }
+          75% { transform: translate(${shakeIntensity}px, ${shakeIntensity}px); }
         }
         
         @keyframes electricArc {

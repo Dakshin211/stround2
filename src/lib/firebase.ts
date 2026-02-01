@@ -17,20 +17,24 @@ export const database = getDatabase(app);
 export const firestore = getFirestore(app);
 
 // Room types
-export type GameStage = 'waiting' | 'countdown' | 'alphabet' | 'alphabet_retransmit' | 'no_signal' | 'communication_unlock' | 'memory1' | 'memory1_wait' | 'memory1_answer' | 'symbol' | 'symbol_received' | 'final' | 'victory';
+export type GameStage = 'waiting' | 'countdown' | 'alphabet' | 'alphabet_retransmit' | 'no_signal' | 'communication_unlock' | 'memory1' | 'memory1_wait' | 'memory1_answer' | 'symbol' | 'symbol_received' | 'final' | 'victory' | 'escaped';
 
 export interface Room {
   u: boolean;
   h: boolean;
   stage: GameStage;
-  puzzleSetId?: string; // Added: puzzleSetId stored directly in room
+  puzzleSetId?: string;
   alphabet: {
     current: string;
-    transmissionId: number; // Unique ID for each letter transmission
-    transmissionComplete: boolean; // Flag when U finishes transmission
+    transmissionId: number;
+    transmissionComplete: boolean;
   };
   uReady?: boolean;
   hReady?: boolean;
+  memoryRoundNumber?: number; // Track memory round attempts
+  startTime?: number; // Game start time (after countdown)
+  endTime?: number; // Victory time
+  status?: 'playing' | 'victory'; // Admin can set this to 'victory'
 }
 
 // Memory list can be either an array of strings OR an object with key-value pairs

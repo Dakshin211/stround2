@@ -48,20 +48,20 @@ export const QRReveal: React.FC<QRRevealProps> = ({ onKeyFound }) => {
   }, [showSecondQR]);
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center space-y-6 p-4">
+    <div className="flex-1 flex flex-col items-center justify-center space-y-8 p-4">
       <GlitchText as="h2" className="text-3xl text-accent">
         FIND THE PORTAL
       </GlitchText>
       
-      {/* Main QR Code - Red/Black themed image */}
+      {/* Main QR Code - Red/Black themed image - LARGER AND CENTERED */}
       <div 
-        className="border-2 border-primary rounded-lg p-4 backdrop-blur-sm overflow-hidden"
-        style={{ maxWidth: '280px' }}
+        className="border-2 border-primary rounded-lg p-6 backdrop-blur-sm overflow-hidden mx-auto"
+        style={{ width: '85vw', maxWidth: '400px' }}
       >
         <img 
-          src="https://i.postimg.cc/Dm39FDG5/qr-navigation.png"
+          src="https://i.postimg.cc/WpdTmc1R/navigation.png"
           alt="QR Code"
-          className="w-full"
+          className="w-full h-auto"
         />
       </div>
       
@@ -74,17 +74,17 @@ export const QRReveal: React.FC<QRRevealProps> = ({ onKeyFound }) => {
       {/* Second QR with fade effect */}
       {showSecondQR && (
         <div 
-          className="flex flex-col items-center space-y-4 transition-opacity"
+          className="flex flex-col items-center space-y-6 transition-opacity"
           style={{ opacity: secondQROpacity }}
         >
           <div 
-            className="border border-primary/50 rounded-lg p-2 overflow-hidden"
-            style={{ maxWidth: '140px' }}
+            className="border border-primary/50 rounded-lg p-3 overflow-hidden mx-auto"
+            style={{ width: '50vw', maxWidth: '200px' }}
           >
             <img 
               src="https://i.postimg.cc/SnH2jvXk/image.png"
               alt="Key QR Code"
-              className="w-full"
+              className="w-full h-auto"
             />
           </div>
           
