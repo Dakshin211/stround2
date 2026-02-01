@@ -7,6 +7,7 @@ import HomePage from "./pages/HomePage";
 import StartPage from "./pages/StartPage";
 import GamePage from "./pages/GamePage";
 import SuccessPage from "./pages/SuccessPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/start" element={<StartPage />} />
           <Route path="/game" element={<GamePage />} />
           <Route path="/success" element={<SuccessPage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

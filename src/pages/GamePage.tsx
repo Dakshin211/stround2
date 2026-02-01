@@ -13,6 +13,7 @@ import { CodeReveal } from '@/components/CodeReveal';
 import { QRReveal } from '@/components/QRReveal';
 import { FinalPasscode } from '@/components/FinalPasscode';
 import { VictoryScreen } from '@/components/VictoryScreen';
+import { EscapeScreen } from '@/components/EscapeScreen';
 import { Input } from '@/components/ui/input';
 import { 
   subscribeToRoom, 
@@ -27,7 +28,7 @@ import {
   GameStage,
   database
 } from '@/lib/firebase';
-import { ref, update } from 'firebase/database';
+import { ref, update, get } from 'firebase/database';
 import upsideDownBg from '@/assets/upside-down-bg.png';
 import alphabetWallBg from '@/assets/alphabet-wall-original.png';
 
@@ -72,14 +73,25 @@ const GamePage: React.FC = () => {
   const [receivedSymbolCode, setReceivedSymbolCode] = useState<string | null>(null);
   const [showVictory, setShowVictory] = useState(false);
   const [memoryRoundNumber, setMemoryRoundNumber] = useState(1);
-  
-  // New flow states
+  const [completionTime, setCompletionTime] = useState<string | null>(null);
   const [symbolPhase, setSymbolPhase] = useState<'waiting_envelope' | 'symbol_decode' | 'code_input' | 'transmitted' | 'h_waiting' | 'h_code_reveal' | 'h_qr'>('waiting_envelope');
   const [showCode1Reveal, setShowCode1Reveal] = useState(false);
   const [showCode2Reveal, setShowCode2Reveal] = useState(false);
   const [showQRReveal, setShowQRReveal] = useState(false);
   const [showFinalPasscode, setShowFinalPasscode] = useState(false);
   const [uVictoryComplete, setUVictoryComplete] = useState(false);
+
+  // Sync memoryRoundNumber from Firebase on mount and when room updates
+  useEffect(() => {
+    if (!roomCode) return;
+    
+    const memoryRoundRef = ref(database, `rooms/${roomCode}/memoryRoundNumber`);
+    get(memoryRoundRef).then(snapshot => {
+      if (snapshot.exists()) {
+        setMemoryRoundNumber(snapshot.val());
+      }
+    });
+  }, [roomCode, room?.stage]);
 
   // Load puzzle data - critical for both players
   // First try to get puzzleSetId from room (Realtime DB), then fallback to team (Firestore)
@@ -335,8 +347,10 @@ const GamePage: React.FC = () => {
         setSymbolPhase('waiting_envelope');
       }
     } else {
-      // Increment round number for next attempt
-      setMemoryRoundNumber(prev => prev + 1);
+      // Increment round number for next attempt - persist to Firebase
+      const newRound = memoryRoundNumber + 1;
+      setMemoryRoundNumber(newRound);
+      await update(ref(database, `rooms/${roomCode}`), { memoryRoundNumber: newRound });
     }
   };
 
@@ -394,6 +408,16 @@ const GamePage: React.FC = () => {
     await updateRoomStage(roomCode, 'victory');
   };
 
+  // Calculate completion time when escaped
+  useEffect(() => {
+    if (room?.status === 'victory' && room?.startTime && room?.endTime) {
+      const diff = room.endTime - room.startTime;
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setCompletionTime(`${mins}:${secs.toString().padStart(2, '0')}`);
+    }
+  }, [room?.status, room?.startTime, room?.endTime]);
+
   if (!roomCode) return null;
 
   // Handle U victory complete - go back to waiting
@@ -402,7 +426,17 @@ const GamePage: React.FC = () => {
     setShowVictory(false);
   };
 
-  // Victory Screen - different message for U and H
+  // Admin declared victory - show escape screen for both players
+  if (room?.status === 'victory' || room?.stage === 'escaped') {
+    return (
+      <EscapeScreen 
+        teamId={teamId} 
+        completionTime={completionTime || undefined}
+      />
+    );
+  }
+
+  // Victory Screen - different message for U and H (after H enters final code)
   if ((showVictory || room?.stage === 'victory') && !uVictoryComplete) {
     return (
       <VictoryScreen 

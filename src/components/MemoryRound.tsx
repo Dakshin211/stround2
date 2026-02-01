@@ -32,7 +32,7 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   roomCode,
   onComplete,
   onAnswer,
-  roundNumber = 1
+  roundNumber: propRoundNumber = 1
 }) => {
   const [timeLeft, setTimeLeft] = useState(60);
   const [phase, setPhase] = useState<'memorize' | 'input' | 'waiting' | 'no_signal'>('memorize');
@@ -41,7 +41,22 @@ export const MemoryRound: React.FC<MemoryRoundProps> = ({
   const [isWrong, setIsWrong] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [roundNumber, setRoundNumber] = useState(propRoundNumber);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync roundNumber from Firebase for persistence across reconnects
+  useEffect(() => {
+    if (!roomCode) return;
+    
+    const roundRef = ref(database, `rooms/${roomCode}/memoryRoundNumber`);
+    const unsubscribe = onValue(roundRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setRoundNumber(snapshot.val());
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [roomCode]);
 
   // Get memory list with values for display
   const memoryListWithValues = useMemo(() => {

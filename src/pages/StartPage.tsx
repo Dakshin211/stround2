@@ -5,7 +5,8 @@ import { ThunderEffect } from '@/components/ThunderEffect';
 import { GlitchText } from '@/components/GlitchText';
 import { ScaryButton } from '@/components/ScaryButton';
 import { CountdownOverlay } from '@/components/CountdownOverlay';
-import { subscribeToRoom, updateRoomStage, Room } from '@/lib/firebase';
+import { subscribeToRoom, updateRoomStage, Room, database } from '@/lib/firebase';
+import { ref, update } from 'firebase/database';
 import upsideDownBg from '@/assets/upside-down-bg.png';
 
 const StartPage: React.FC = () => {
@@ -66,7 +67,11 @@ const StartPage: React.FC = () => {
   };
 
   const handleCountdownComplete = async () => {
-    // After countdown, move to alphabet stage
+    // Record game start time and move to alphabet stage
+    await update(ref(database, `rooms/${roomCode}`), { 
+      startTime: Date.now(),
+      status: 'playing'
+    });
     await updateRoomStage(roomCode, 'alphabet');
   };
 
