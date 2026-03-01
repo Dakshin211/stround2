@@ -9,6 +9,10 @@ import { subscribeToRoom, updateRoomStage, Room, database } from '@/lib/firebase
 import { ref, update } from 'firebase/database';
 import upsideDownBg from '@/assets/upside-down-bg.png';
 
+
+
+
+
 const StartPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
